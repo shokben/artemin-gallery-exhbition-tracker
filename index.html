@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>藝廊展覽進度規劃</title>
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" type="image/png" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="藝廊展覽">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+:root {
+  --ink:#1a1814;--ink-2:#4a4642;--ink-3:#8a8480;
+  --paper:#faf8f4;--paper-2:#f2efe8;--paper-3:#e8e4da;
+  --gold:#b8924a;--gold-lt:#f0e4cc;
+  --teal:#3a7a6a;--teal-lt:#d4ede6;
+  --blue:#3a5a8a;--blue-lt:#d4e0ef;
+  --mauve:#7a5a7a;--mauve-lt:#e8d8e8;
+  --border:rgba(26,24,20,0.12);--border-md:rgba(26,24,20,0.22);
+  --radius:6px;--serif:'Noto Serif TC',serif;--sans:'Noto Sans TC',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--sans);background:var(--paper);color:var(--ink);min-height:100vh;font-size:14px;line-height:1.6;}
+
+/* ── 登入畫面 ── */
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--paper);}
+.login-card{background:white;border:1px solid var(--border-md);border-radius:12px;padding:2.5rem 2rem;width:340px;text-align:center;box-shadow:0 4px 24px rgba(26,24,20,0.08);}
+.login-logo{font-family:var(--serif);font-size:13px;letter-spacing:0.12em;color:var(--gold);margin-bottom:0.5rem;}
+.login-title{font-family:var(--serif);font-size:20px;font-weight:500;margin-bottom:0.5rem;}
+.login-sub{font-size:12px;color:var(--ink-3);margin-bottom:2rem;}
+.login-divider{height:1px;background:var(--border);margin:1.5rem 0;}
+.login-err{font-size:12px;color:#b04040;background:#fef2f2;border:1px solid #fca5a5;border-radius:var(--radius);padding:8px 12px;margin-top:1rem;display:none;}
+
+/* ── 頂部 ── */
+#appScreen{display:none;}
+.topbar{background:var(--ink);color:var(--paper);padding:0 2rem;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+.topbar-brand{font-family:var(--serif);font-size:15px;letter-spacing:0.08em;color:var(--gold);}
+.topbar-right{display:flex;align-items:center;gap:16px;}
+.user-info{display:flex;align-items:center;gap:8px;}
+.user-avatar{width:28px;height:28px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(255,255,255,0.2);}
+.user-name{font-size:12px;color:rgba(255,255,255,0.7);}
+.logout-btn{background:none;border:1px solid rgba(255,255,255,0.2);border-radius:var(--radius);padding:4px 10px;font-size:11px;cursor:pointer;color:rgba(255,255,255,0.6);}
+.logout-btn:hover{background:rgba(255,255,255,0.1);}
+.sync-status{display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,0.5);}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:#6bc18a;}
+.sync-dot.syncing{background:var(--gold);animation:pulse 1s infinite;}
+.sync-dot.error{background:#e06060;animation:none;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* ── 主容器 ── */
+.container{max-width:1200px;margin:0 auto;padding:2rem 2rem 4rem;}
+.page-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid var(--border);}
+.page-title{font-family:var(--serif);font-size:24px;font-weight:500;}
+.page-sub{font-size:12px;color:var(--ink-3);margin-top:2px;}
+.header-actions{display:flex;align-items:center;gap:10px;}
+.year-nav{display:flex;align-items:center;gap:6px;}
+.year-btn{background:none;border:1px solid var(--border-md);border-radius:var(--radius);width:28px;height:28px;cursor:pointer;color:var(--ink-2);font-size:14px;display:flex;align-items:center;justify-content:center;}
+.year-btn:hover{background:var(--paper-2);}
+.year-num{font-family:var(--serif);font-size:16px;font-weight:500;min-width:42px;text-align:center;}
+.add-btn{background:var(--ink);color:var(--paper);border:none;border-radius:var(--radius);padding:7px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;}
+.add-btn:hover{opacity:0.85;}
+
+/* ── 統計 ── */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.5rem;}
+.stat-card{background:var(--paper-2);border:1px solid var(--border);border-radius:var(--radius);padding:0.875rem 1rem;}
+.stat-label{font-size:11px;color:var(--ink-3);letter-spacing:0.05em;margin-bottom:4px;}
+.stat-val{font-family:var(--serif);font-size:24px;font-weight:500;}
+.stat-unit{font-family:var(--sans);font-size:12px;color:var(--ink-3);}
+
+/* ── 甘特圖 ── */
+.gantt-wrap{background:white;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:0 2px 12px rgba(26,24,20,0.06);}
+.gantt-header{display:grid;grid-template-columns:200px 1fr;border-bottom:1px solid var(--border);}
+.gantt-header-label{padding:8px 12px;font-size:11px;color:var(--ink-3);border-right:1px solid var(--border);}
+.months-row{display:grid;grid-template-columns:repeat(12,1fr);}
+.month-cell{font-size:11px;color:var(--ink-3);text-align:center;padding:8px 0;border-right:1px solid var(--border);}
+.month-cell:last-child{border-right:none;}
+.gantt-row{display:grid;grid-template-columns:200px 1fr;border-bottom:1px solid var(--border);transition:background 0.12s;}
+.gantt-row:last-child{border-bottom:none;}
+.gantt-row:hover{background:var(--paper);}
+.gantt-info{padding:10px 12px;border-right:1px solid var(--border);cursor:pointer;display:flex;flex-direction:column;justify-content:center;}
+.gantt-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gantt-meta{display:flex;align-items:center;gap:6px;margin-top:3px;}
+.status-badge{font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;white-space:nowrap;}
+.s-planning{background:var(--mauve-lt);color:var(--mauve);}
+.s-confirmed{background:var(--blue-lt);color:var(--blue);}
+.s-active{background:var(--teal-lt);color:var(--teal);}
+.s-done{background:var(--paper-3);color:var(--ink-3);}
+.progress-text{font-size:10px;color:var(--ink-3);}
+.gantt-tl{position:relative;height:48px;cursor:pointer;}
+.tl-grid{position:absolute;top:0;left:0;width:100%;height:100%;display:grid;grid-template-columns:repeat(12,1fr);pointer-events:none;}
+.tl-cell{border-right:1px solid var(--border);}
+.tl-cell:last-child{border-right:none;}
+.today-marker{position:absolute;top:0;width:1px;height:100%;pointer-events:none;z-index:4;}
+.bar{position:absolute;top:10px;height:28px;border-radius:4px;z-index:3;display:flex;align-items:center;padding:0 8px;font-size:11px;font-weight:500;overflow:hidden;white-space:nowrap;transition:opacity 0.15s;}
+.bar:hover{opacity:0.85;}
+.bar-planning{background:var(--mauve);color:white;}
+.bar-confirmed{background:var(--blue);color:white;}
+.bar-active{background:var(--teal);color:white;}
+.bar-done{background:var(--paper-3);color:var(--ink-3);}
+.loading-state{text-align:center;padding:3rem;color:var(--ink-3);font-size:13px;}
+.error-state{text-align:center;padding:2rem;background:#fef2f2;border:1px solid #fca5a5;border-radius:var(--radius);color:#b91c1c;font-size:13px;margin:1rem 0;}
+
+/* ── 彈窗 ── */
+.overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(26,24,20,0.4);z-index:200;align-items:center;justify-content:center;}
+.overlay.open{display:flex;}
+.modal{background:var(--paper);border:1px solid var(--border-md);border-radius:10px;width:520px;max-width:92vw;max-height:88vh;overflow-y:auto;padding:1.5rem;box-shadow:0 12px 40px rgba(26,24,20,0.18);}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;padding-bottom:0.875rem;border-bottom:1px solid var(--border);}
+.modal-title{font-family:var(--serif);font-size:16px;font-weight:500;}
+.modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-3);line-height:1;padding:0 2px;}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.field{display:flex;flex-direction:column;gap:4px;}
+.field.full{grid-column:1/-1;}
+.field label{font-size:11px;color:var(--ink-3);letter-spacing:0.04em;}
+.field input,.field select{font-family:var(--sans);font-size:13px;padding:7px 10px;border:1px solid var(--border-md);border-radius:var(--radius);background:white;color:var(--ink);outline:none;transition:border-color 0.15s;}
+.field input:focus,.field select:focus{border-color:var(--gold);}
+
+/* ── 任務樣式 ── */
+.tasks-section{margin-top:1.25rem;border-top:1px solid var(--border);padding-top:1rem;}
+.tasks-title{font-size:11px;color:var(--ink-3);letter-spacing:0.05em;margin-bottom:10px;}
+.task-list{display:flex;flex-direction:column;gap:4px;}
+.task-group{display:flex;flex-direction:column;gap:3px;}
+.task-parent{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--paper-2);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:background 0.12s;}
+.task-parent:hover{background:var(--paper-3);}
+.task-parent.ck{background:var(--teal-lt);border-color:rgba(58,122,106,0.3);}
+.task-subs{display:flex;flex-direction:column;gap:3px;padding-left:14px;margin-top:3px;}
+.task-sub{display:flex;align-items:center;gap:8px;padding:6px 10px;background:white;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:background 0.12s;}
+.task-sub:hover{background:var(--paper-2);}
+.task-sub.ck{background:var(--teal-lt);border-color:rgba(58,122,106,0.3);}
+.task-sub2s{display:flex;flex-direction:column;gap:3px;padding-left:14px;margin-top:3px;}
+.task-sub2{display:flex;align-items:center;gap:8px;padding:5px 10px;background:var(--paper);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:background 0.12s;}
+.task-sub2:hover{background:var(--paper-2);}
+.task-sub2.ck{background:var(--teal-lt);border-color:rgba(58,122,106,0.3);}
+.chk{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--border-md);background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.12s;}
+.task-parent.ck .chk,.task-sub.ck .chk,.task-sub2.ck .chk{background:var(--teal);border-color:var(--teal);}
+.chkico{display:none;width:8px;height:6px;}
+.chkico path{stroke:white;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.task-parent.ck .chkico,.task-sub.ck .chkico,.task-sub2.ck .chkico{display:block;}
+.task-name{font-size:12px;color:var(--ink-2);flex:1;}
+.task-parent .task-name{font-weight:500;font-size:13px;color:var(--ink);}
+.task-parent.ck .task-name,.task-sub.ck .task-name,.task-sub2.ck .task-name{color:var(--teal);}
+.task-cnt{font-size:10px;color:var(--ink-3);margin-left:auto;}
+.task-parent.disabled,.task-sub.disabled,.task-sub2.disabled{opacity:0.35;pointer-events:none;background:var(--paper-3)!important;}
+
+.modal-actions{display:flex;gap:8px;margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);}
+.btn-del{background:none;border:1px solid #e5a0a0;border-radius:var(--radius);padding:7px 14px;font-size:12px;cursor:pointer;color:#b04040;margin-right:auto;font-family:var(--sans);}
+.btn-del:hover{background:#fef2f2;}
+.btn-cancel{background:none;border:1px solid var(--border-md);border-radius:var(--radius);padding:7px 16px;font-size:13px;cursor:pointer;color:var(--ink-2);font-family:var(--sans);}
+.btn-save{background:var(--ink);color:var(--paper);border:none;border-radius:var(--radius);padding:7px 20px;font-size:13px;cursor:pointer;font-family:var(--sans);}
+.btn-save:hover{opacity:0.85;}
+.btn-save:disabled{opacity:0.5;cursor:not-allowed;}
+
+/* ── 手機卡片列表 ── */
+.card-list{display:none;flex-direction:column;gap:8px;}
+.exh-card{background:white;border:1px solid var(--border);border-radius:10px;padding:1rem 1rem 0.875rem;cursor:pointer;transition:box-shadow 0.15s;active-opacity:0.85;}
+.exh-card:active{opacity:0.8;}
+.exh-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px;}
+.exh-card-name{font-size:15px;font-weight:500;color:var(--ink);line-height:1.3;}
+.exh-card-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+.exh-card-date{font-size:12px;color:var(--ink-3);}
+.exh-progress-bar{height:4px;background:var(--paper-3);border-radius:2px;overflow:hidden;}
+.exh-progress-fill{height:100%;background:var(--teal);border-radius:2px;transition:width 0.3s;}
+
+/* ── RWD ── */
+@media(max-width:768px){
+  .topbar{padding:0 1rem;height:48px;}
+  .topbar-brand{font-size:13px;}
+  .user-name{display:none;}
+  .sync-status{display:none;}
+  .container{padding:1rem 1rem 5rem;}
+  .page-header{flex-direction:column;align-items:flex-start;gap:10px;margin-bottom:1rem;}
+  .page-title{font-size:20px;}
+  .page-sub{display:none;}
+  .header-actions{width:100%;justify-content:space-between;}
+  .add-btn{padding:8px 14px;font-size:13px;}
+  .stats{grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:1rem;}
+  .stat-val{font-size:20px;}
+  /* 手機隱藏甘特圖，顯示卡片 */
+  .gantt-wrap{display:none;}
+  .card-list{display:flex;}
+  /* 彈窗全螢幕 */
+  .overlay{align-items:flex-end;}
+  .modal{width:100%;max-width:100%;max-height:92vh;border-radius:16px 16px 0 0;padding:1.25rem 1rem 2rem;}
+  .field-grid{grid-template-columns:1fr;}
+  .field.full{grid-column:1;}
+  .field input,.field select{font-size:16px;padding:10px 12px;}/* 防止 iOS 自動縮放 */
+  .task-parent{padding:12px 10px;}
+  .task-sub{padding:10px 10px;}
+  .task-sub2{padding:8px 10px;}
+  .task-name{font-size:13px;}
+  .task-parent .task-name{font-size:14px;}
+  .chk{width:18px;height:18px;}
+  .chkico{width:10px;height:8px;}
+  .btn-del,.btn-cancel,.btn-save{padding:10px 16px;font-size:14px;}
+  .modal-actions{gap:8px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ 登入畫面 ══ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">ARTEMIN GALLERY</div>
+    <div class="login-title">展覽進度規劃</div>
+    <div class="login-sub">請使用藝廊 Google 帳號登入</div>
+    <div id="g_id_onload"
+      data-client_id="168301456970-nptqdg437fssl7lu7vu9u8i5uf6and3h.apps.googleusercontent.com"
+      data-context="signin"
+      data-ux_mode="popup"
+      data-callback="handleGoogleLogin"
+      data-auto_prompt="false">
+    </div>
+    <div class="g_id_signin"
+      data-type="standard"
+      data-shape="rectangular"
+      data-theme="outline"
+      data-text="signin_with"
+      data-size="large"
+      data-locale="zh-TW"
+      data-width="280">
+    </div>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- ══ 主應用 ══ -->
+<div id="appScreen">
+  <div class="topbar">
+    <div class="topbar-brand">藝廊展覽進度規劃</div>
+    <div class="topbar-right">
+      <div class="sync-status">
+        <div class="sync-dot" id="syncDot"></div>
+        <span id="syncLabel">已連線</span>
+      </div>
+      <div class="user-info">
+        <img class="user-avatar" id="userAvatar" src="" alt="">
+        <span class="user-name" id="userName"></span>
+      </div>
+      <button class="logout-btn" onclick="logout()">登出</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <div class="page-title" id="pageTitle">年度展覽規劃</div>
+        <div class="page-sub">點擊展覽列以編輯詳情與進度</div>
+      </div>
+      <div class="header-actions">
+        <div class="year-nav">
+          <button class="year-btn" onclick="changeYear(-1)">&#8592;</button>
+          <div class="year-num" id="yearNum">2026</div>
+          <button class="year-btn" onclick="changeYear(1)">&#8594;</button>
+        </div>
+        <button class="add-btn" onclick="openAdd()">＋ 新增展覽</button>
+      </div>
+    </div>
+    <div class="stats" id="statsBar"></div>
+    <div class="gantt-wrap">
+      <div class="gantt-header">
+        <div class="gantt-header-label">展覽名稱</div>
+        <div class="months-row" id="monthsRow"></div>
+      </div>
+      <div id="ganttBody"><div class="loading-state">請先登入</div></div>
+    </div>
+    <div class="card-list" id="cardList"></div>
+  </div>
+</div>
+
+<!-- ══ 編輯彈窗 ══ -->
+<div class="overlay" id="overlay" onclick="maybeClose(event)">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="modalTitle">展覽詳情</div>
+      <button class="modal-close" onclick="closeModal()">&#215;</button>
+    </div>
+    <div class="field-grid">
+      <div class="field full"><label>展覽名稱</label><input id="fName" type="text" placeholder="例：春季油畫聯展"></div>
+      <div class="field"><label>藝術家</label><input id="fArtist" type="text" placeholder="藝術家姓名"></div>
+      <div class="field"><label>策展人</label><input id="fCurator" type="text" placeholder="策展人姓名"></div>
+      <div class="field"><label>展覽類型</label>
+        <select id="fType">
+          <option>畫作</option><option>攝影</option><option>雕塑</option>
+          <option>裝置藝術</option><option>版畫</option><option>水彩</option>
+          <option>混合媒材</option><option>其他</option>
+        </select>
+      </div>
+      <div class="field"><label>展間</label><input id="fRoom" type="text" placeholder="例：主展廳"></div>
+      <div class="field"><label>開展日期</label><input id="fStart" type="date"></div>
+      <div class="field"><label>結束日期</label><input id="fEnd" type="date"></div>
+      <div class="field"><label>狀態</label>
+        <select id="fStatus">
+          <option value="planning">規劃中</option>
+          <option value="confirmed">已確認</option>
+          <option value="active">展覽中</option>
+          <option value="done">已結束</option>
+        </select>
+      </div>
+    </div>
+    <div class="tasks-section">
+      <div class="tasks-title">標準作業進度</div>
+      <div class="task-list" id="taskList"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-del" id="deleteBtn" onclick="deleteExh()">刪除展覽</button>
+      <button class="btn-cancel" onclick="closeModal()">取消</button>
+      <button class="btn-save" id="saveBtn" onclick="saveExh()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbwHaxwSZztR-qbtse4qG09YENNe3fGYvIRvafHjVaxKLeFKIFaYJn6r4PDbKV10Rx05/exec';
+
+// 任務結構定義
+// mutex: true = 子項目互斥（勾任一即完成父項目，另一自動停用）
+// anyOne: true = 子項目任一完成即算父項目完成
+const TASKS = [
+  { k:'藝術家展覽簽約', subs:[] },
+  { k:'作品確認', subs:[
+    { k:'作品圖確認', anyOne:true, subs:[
+      { k:'藝術家有提供', subs:[] },
+      { k:'藝術家沒提供 → 預約拍照', subs:[] }
+    ]}
+  ]},
+  { k:'展品運輸', subs:[
+    { k:'取件預約', subs:[] },
+    { k:'表框', anyOne:true, subs:[
+      { k:'是', subs:[] },
+      { k:'否', subs:[] }
+    ]}
+  ]},
+  { k:'場地準備', subs:[
+    { k:'櫥窗油漆顏色確定', subs:[] },
+    { k:'展場內油漆及牆面補洞', subs:[] }
+  ]},
+  { k:'設計製作', subs:[
+    { k:'Facebook', subs:[] },
+    { k:'Instagram', subs:[] },
+    { k:'海報', subs:[] },
+    { k:'卡點', subs:[] },
+    { k:'Floor map', subs:[] },
+    { k:'小卡製作', anyOne:true, subs:[
+      { k:'有', subs:[] },
+      { k:'無', subs:[] }
+    ]}
+  ]},
+  { k:'布展', subs:[{ k:'時間預約', subs:[] }] },
+  { k:'媒體通知', subs:[{ k:'國內', subs:[] },{ k:'國外', subs:[] }] },
+  { k:'開幕宣傳', subs:[{ k:'LINE 群發', subs:[] },{ k:'電子報', subs:[] },{ k:'社群', subs:[] }] },
+  { k:'開幕茶會', subs:[] },
+  { k:'結展撤展', subs:[] },
+  { k:'展覽後展品處置', mutex:true, subs:[
+    { k:'作品無售出', subs:[{ k:'作品退回藝術家', subs:[] }] },
+    { k:'作品售出', subs:[
+      { k:'紙箱製作', subs:[] },
+      { k:'保證卡製作', subs:[] },
+      { k:'運輸', subs:[] }
+    ]}
+  ]}
+];
+
+// 展開成扁平陣列，取得 checkbox 總數
+function flattenTasks(nodes) {
+  const result = [];
+  nodes.forEach(n => { result.push(n); if(n.subs.length) result.push(...flattenTasks(n.subs)); });
+  return result;
+}
+const TASK_FLAT = flattenTasks(TASKS);
+const TASK_COUNT = TASK_FLAT.length;
+
+const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+const STATUS_LABELS = { planning:'規劃中', confirmed:'已確認', active:'展覽中', done:'已結束' };
+
+let currentYear = new Date().getFullYear();
+let exhibitions = [];
+let editingId = null;
+let isSaving = false;
+let currentUser = null;
+
+// ── Google 登入 ──
+function handleGoogleLogin(response) {
+  const payload = parseJwt(response.credential);
+  const email = payload.email;
+  const WHITELIST = [
+    'benhsiao@artemingallery.com',
+    'phiisc@artemingallery.com',
+    'info@artemingallery.com',
+    'chanelcheng@artemingallery.com',
+    'casperchen@artemingallery.com'
+  ];
+  if (!WHITELIST.includes(email.toLowerCase())) {
+    const err = document.getElementById('loginErr');
+    err.textContent = '此帳號沒有存取權限，請聯繫管理員。';
+    err.style.display = 'block';
+    return;
+  }
+  currentUser = { email, name: payload.name, avatar: payload.picture };
+  sessionStorage.setItem('gallery_user', JSON.stringify(currentUser));
+  showApp();
+  loadExhibitions();
+}
+
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  document.getElementById('userName').textContent = currentUser.name;
+  document.getElementById('userAvatar').src = currentUser.avatar || '';
+}
+
+function parseJwt(token) {
+  const base64 = token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+  return JSON.parse(decodeURIComponent(atob(base64).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+}
+
+function logout() {
+  currentUser = null;
+  exhibitions = [];
+  sessionStorage.removeItem('gallery_user');
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginErr').style.display = 'none';
+  google.accounts.id.disableAutoSelect();
+}
+
+// 頁面載入時檢查是否已登入
+(function checkSession() {
+  const saved = sessionStorage.getItem('gallery_user');
+  if (saved) {
+    try {
+      currentUser = JSON.parse(saved);
+      showApp();
+      loadExhibitions();
+    } catch(e) { sessionStorage.removeItem('gallery_user'); }
+  }
+})();
+
+// ── API ──
+function setSyncState(s) {
+  const dot = document.getElementById('syncDot');
+  const lbl = document.getElementById('syncLabel');
+  dot.className = 'sync-dot'+(s==='syncing'?' syncing':s==='error'?' error':'');
+  lbl.textContent = s==='syncing'?'同步中…':s==='error'?'連線失敗':'已連線';
+}
+
+function jsonp(url) {
+  return new Promise((resolve, reject) => {
+    const cbName = '_cb' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const timer = setTimeout(() => {
+      delete window[cbName];
+      script.parentNode && script.parentNode.removeChild(script);
+      reject(new Error('timeout'));
+    }, 20000);
+    window[cbName] = (data) => {
+      clearTimeout(timer);
+      delete window[cbName];
+      script.parentNode && script.parentNode.removeChild(script);
+      resolve(data);
+    };
+    const script = document.createElement('script');
+    script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cbName;
+    script.onerror = () => {
+      clearTimeout(timer);
+      delete window[cbName];
+      script.parentNode && script.parentNode.removeChild(script);
+      reject(new Error('script load error'));
+    };
+    document.head.appendChild(script);
+  });
+}
+
+// 請求佇列，確保寫入操作不會並發
+const requestQueue = [];
+let isProcessing = false;
+
+async function processQueue() {
+  if (isProcessing || requestQueue.length === 0) return;
+  isProcessing = true;
+  const { url, resolve, reject } = requestQueue.shift();
+  try {
+    const data = await jsonp(url);
+    resolve(data);
+  } catch(e) {
+    reject(e);
+  } finally {
+    isProcessing = false;
+    processQueue();
+  }
+}
+
+function queuedJsonp(url) {
+  return new Promise((resolve, reject) => {
+    requestQueue.push({ url, resolve, reject });
+    processQueue();
+  });
+}
+
+// 重試機制：失敗或伺服器忙碌時自動重試
+async function fetchWithRetry(url, isWrite, maxRetries = 4) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const data = isWrite ? await queuedJsonp(url) : await jsonp(url);
+      // 伺服器回應 busy 時重試
+      if (data && data.error === 'busy') {
+        if (attempt < maxRetries) {
+          const wait = 1000 * (attempt + 1);
+          setSyncState('syncing');
+          await new Promise(r => setTimeout(r, wait));
+          continue;
+        }
+      }
+      return data;
+    } catch(e) {
+      if (attempt < maxRetries) {
+        const wait = 800 * (attempt + 1);
+        await new Promise(r => setTimeout(r, wait));
+        continue;
+      }
+      throw e;
+    }
+  }
+}
+
+async function apiFetch(method, body) {
+  setSyncState('syncing');
+  try {
+    let data;
+    if (method === 'GET') {
+      const url = `${API_URL}?action=list&year=${currentYear}&email=${encodeURIComponent(currentUser.email)}`;
+      data = await fetchWithRetry(url, false);
+    } else {
+      const payload = {...body, email: currentUser.email};
+      const url = `${API_URL}?payload=${encodeURIComponent(JSON.stringify(payload))}`;
+      data = await fetchWithRetry(url, true);
+    }
+    if (data && data.error === 'unauthorized') { logout(); return null; }
+    setSyncState('ok');
+    return data;
+  } catch(e) { setSyncState('error'); throw e; }
+}
+
+async function loadExhibitions() {
+  document.getElementById('loadingState') && (document.getElementById('loadingState').textContent = '載入中…');
+  try {
+    const res = await apiFetch('GET');
+    if (res && res.success) { exhibitions = res.data; renderAll(); }
+    else showError('載入失敗');
+  } catch(e) { showError('無法連線至伺服器'); }
+}
+
+function showError(msg) {
+  document.getElementById('ganttBody').innerHTML = `<div class="error-state">${msg}</div>`;
+}
+
+// ── 渲染 ──
+function pct(dateStr) {
+  const d = new Date(dateStr), s = new Date(currentYear,0,1), e = new Date(currentYear+1,0,1);
+  return Math.max(0, Math.min(1,(d-s)/(e-s)));
+}
+
+function renderAll() {
+  document.getElementById('yearNum').textContent = currentYear;
+  document.getElementById('pageTitle').textContent = `${currentYear} 年度展覽規劃`;
+  document.getElementById('monthsRow').innerHTML = MONTHS.map(m=>`<div class="month-cell">${m}</div>`).join('');
+
+  const counts = {};
+  exhibitions.forEach(e => counts[e.status] = (counts[e.status]||0)+1);
+  const avgProg = exhibitions.length
+    ? Math.round(exhibitions.reduce((s,e)=>{
+        const t = Array.isArray(e.tasks)?e.tasks:Array(TASK_COUNT).fill(0);
+        return s + t.filter(x=>x).length/t.length;
+      },0)/exhibitions.length*100) : 0;
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat-card"><div class="stat-label">總展覽數</div><div class="stat-val">${exhibitions.length}<span class="stat-unit">檔</span></div></div>
+    <div class="stat-card"><div class="stat-label">已結束</div><div class="stat-val">${counts.done||0}<span class="stat-unit">檔</span></div></div>
+    <div class="stat-card"><div class="stat-label">進行中</div><div class="stat-val">${counts.active||0}<span class="stat-unit">檔</span></div></div>
+    <div class="stat-card"><div class="stat-label">平均進度</div><div class="stat-val">${avgProg}<span class="stat-unit">%</span></div></div>`;
+
+  const todayPct = pct(new Date().toISOString().slice(0,10));
+  const body = document.getElementById('ganttBody');
+  if (!exhibitions.length) { body.innerHTML = '<div class="loading-state">此年度尚無展覽，點擊「新增展覽」開始規劃。</div>'; return; }
+  body.innerHTML = '';
+  // 依開展日期排序
+  const sorted = [...exhibitions].sort((a,b) => new Date(a.start) - new Date(b.start));
+  sorted.forEach(e => {
+    e.start = normalizeDate(e.start);
+    e.end = normalizeDate(e.end);
+    const sp=pct(e.start)*100, ep=pct(e.end)*100;
+    const bL=Math.max(0,sp), bR=Math.min(100,ep), bW=Math.max(0,bR-bL);
+    const tasks=Array.isArray(e.tasks)?e.tasks:Array(TASK_COUNT).fill(0);
+    const prog=Math.round(tasks.filter(x=>x).length/tasks.length*100);
+    const row=document.createElement('div');
+    row.className='gantt-row';
+    row.innerHTML=`
+      <div class="gantt-info" onclick="openEdit(${e.id})">
+        <div class="gantt-name">${e.name}</div>
+        <div class="gantt-meta">
+          <span class="status-badge s-${e.status}">${STATUS_LABELS[e.status]}</span>
+          <span class="progress-text">${prog}%</span>
+        </div>
+      </div>
+      <div class="gantt-tl" onclick="openEdit(${e.id})">
+        <div class="tl-grid">${Array(12).fill('<div class="tl-cell"></div>').join('')}</div>
+        ${currentYear===new Date().getFullYear()?`<div class="today-marker" style="left:${todayPct*100}%;background:var(--gold);opacity:0.7;"></div>`:''}
+        ${bW>0?`<div class="bar bar-${e.status}" style="left:${bL}%;width:${bW}%;">${bW>6?e.name:''}</div>`:''}
+      </div>`;
+    body.appendChild(row);
+  });
+
+  // 手機卡片列表
+  const cardList = document.getElementById('cardList');
+  cardList.innerHTML = '';
+  sorted.forEach(e => {
+    const tasks = Array.isArray(e.tasks)?e.tasks:Array(TASK_COUNT).fill(0);
+    const prog = Math.round(tasks.filter(x=>x).length/tasks.length*100);
+    const startFmt = e.start ? e.start.slice(0,7).replace('-','/') : '';
+    const endFmt = e.end ? e.end.slice(0,7).replace('-','/') : '';
+    const card = document.createElement('div');
+    card.className = 'exh-card';
+    card.onclick = () => openEdit(e.id);
+    card.innerHTML = `
+      <div class="exh-card-top">
+        <div class="exh-card-name">${e.name}</div>
+        <span class="status-badge s-${e.status}">${STATUS_LABELS[e.status]}</span>
+      </div>
+      <div class="exh-card-meta">
+        <span class="exh-card-date">📅 ${startFmt} － ${endFmt}</span>
+        ${e.room ? `<span class="exh-card-date">📍 ${e.room}</span>` : ''}
+        <span class="exh-card-date">${prog}%</span>
+      </div>
+      <div class="exh-progress-bar">
+        <div class="exh-progress-fill" style="width:${prog}%"></div>
+      </div>`;
+    cardList.appendChild(card);
+  });
+}
+
+// ── 彈窗 ──
+function openEdit(id) {
+  editingId = id;
+  const e = exhibitions.find(x=>x.id===id);
+  document.getElementById('modalTitle').textContent = '編輯展覽';
+  document.getElementById('deleteBtn').style.display = 'inline-block';
+  fillModal(e);
+  document.getElementById('overlay').classList.add('open');
+}
+function openAdd() {
+  editingId = null;
+  document.getElementById('modalTitle').textContent = '新增展覽';
+  document.getElementById('deleteBtn').style.display = 'none';
+  fillModal({ name:'',artist:'',curator:'',type:'畫作',start:`${currentYear}-01-01`,end:`${currentYear}-03-31`,status:'planning',room:'',tasks:Array(TASK_COUNT).fill(0) });
+  document.getElementById('overlay').classList.add('open');
+}
+
+function chkHtml() {
+  return `<div class="chk"><svg class="chkico" viewBox="0 0 8 6"><path d="M1 3L3 5L7 1"/></svg></div>`;
+}
+
+const taskMeta = {};
+
+function buildTaskNodes(nodes, tasks, depth, idxRef, parentIdx) {
+  let html = '';
+  // 收集同層兄弟 idx 供 mutex/anyOne 使用
+  const siblingIdxs = [];
+  const peek = { i: idxRef.i };
+  nodes.forEach(n => { siblingIdxs.push(peek.i); peek.i++; countFlat(n.subs, peek); });
+
+  nodes.forEach((n, ni) => {
+    const myIdx = idxRef.i++;
+    const hasSubs = n.subs && n.subs.length > 0;
+    const isChecked = tasks[myIdx] ? 'ck' : '';
+    const cls = depth === 0 ? 'task-parent' : depth === 1 ? 'task-sub' : 'task-sub2';
+    const container = depth === 0 ? 'task-subs' : 'task-sub2s';
+
+    taskMeta[myIdx] = {
+      anyOne: n.anyOne || false,
+      mutex: n.mutex || false,
+      parentIdx: parentIdx,
+      siblingIdxs: siblingIdxs.filter(x => x !== myIdx)
+    };
+
+    html += `<div class="${cls} ${isChecked}" data-idx="${myIdx}" onclick="toggleNode(this)">
+      ${chkHtml()}<span class="task-name">${n.k}</span>
+      ${hasSubs ? `<span class="task-cnt" id="tcnt-${myIdx}"></span>` : `<input type="checkbox" style="display:none" data-idx="${myIdx}" ${isChecked ? 'checked' : ''}>`}
+    </div>`;
+
+    if (hasSubs) {
+      html += `<div class="${container}" id="subsof-${myIdx}">`;
+      html += buildTaskNodes(n.subs, tasks, depth + 1, idxRef, myIdx);
+      html += `</div>`;
+    }
+  });
+  return html;
+}
+
+function countFlat(nodes, ref) {
+  nodes.forEach(n => { ref.i++; if (n.subs) countFlat(n.subs, ref); });
+}
+
+function normalizeDate(val) {
+  if (!val) return '';
+  // 如果是 Date 物件或數字（Sheets 有時回傳 serial number）
+  if (typeof val === 'number') {
+    // Google Sheets date serial to JS date
+    const d = new Date(Math.round((val - 25569) * 86400 * 1000));
+    return d.toISOString().slice(0, 10);
+  }
+  const s = String(val).trim();
+  if (!s) return '';
+  // 已經是 YYYY-MM-DD 格式
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // 嘗試解析其他格式
+  const d = new Date(s);
+  if (!isNaN(d)) return d.toISOString().slice(0, 10);
+  return s;
+}
+
+function fillModal(e) {
+  document.getElementById('fName').value = e.name||'';
+  document.getElementById('fArtist').value = e.artist||'';
+  document.getElementById('fCurator').value = e.curator||'';
+  document.getElementById('fType').value = e.type||'其他';
+  document.getElementById('fStart').value = normalizeDate(e.start);
+  document.getElementById('fEnd').value = normalizeDate(e.end);
+  document.getElementById('fStatus').value = e.status||'planning';
+  document.getElementById('fRoom').value = e.room||'';
+  let tasks = Array.isArray(e.tasks) ? [...e.tasks] : [];
+  while (tasks.length < TASK_COUNT) tasks.push(0);
+  Object.keys(taskMeta).forEach(k => delete taskMeta[k]);
+  const idxRef = { i: 0 };
+  document.getElementById('taskList').innerHTML = buildTaskNodes(TASKS, tasks, 0, idxRef, null);
+  applyDisabledStates();
+  updateAllCounts();
+}
+
+function toggleNode(el) {
+  if (el.classList.contains('disabled')) return;
+  const idx = parseInt(el.dataset.idx);
+  const meta = taskMeta[idx];
+  const willCheck = !el.classList.contains('ck');
+
+  // 勾選此節點
+  setNodeChecked(el, willCheck);
+
+  // 父勾 → 子全部跟著勾（或取消）
+  const subsEl = document.getElementById(`subsof-${idx}`);
+  if (subsEl) {
+    subsEl.querySelectorAll('[data-idx]').forEach(child => {
+      if (!child.classList.contains('disabled')) setNodeChecked(child, willCheck);
+    });
+  }
+
+  // 處理 anyOne / mutex：勾選任一後 disable 兄弟分支
+  if (meta && meta.parentIdx !== null && meta.parentIdx !== undefined) {
+    const parentMeta = taskMeta[meta.parentIdx];
+    if (parentMeta && (parentMeta.anyOne || parentMeta.mutex)) {
+      if (willCheck) {
+        meta.siblingIdxs.forEach(sibIdx => disableBranch(sibIdx, true));
+      } else {
+        const anyChecked = meta.siblingIdxs.some(sibIdx => {
+          const s = document.querySelector(`[data-idx="${sibIdx}"]`);
+          return s && s.classList.contains('ck');
+        });
+        if (!anyChecked) meta.siblingIdxs.forEach(sibIdx => disableBranch(sibIdx, false));
+      }
+    }
+  }
+
+  updateAllCounts();
+}
+
+function setNodeChecked(el, checked) {
+  el.classList.toggle('ck', checked);
+  const cb = el.querySelector(':scope > input[type=checkbox]');
+  if (cb) cb.checked = checked;
+}
+
+function disableBranch(idx, disabled) {
+  const el = document.querySelector(`[data-idx="${idx}"]`);
+  if (el) el.classList.toggle('disabled', disabled);
+  const subs = document.getElementById(`subsof-${idx}`);
+  if (subs) subs.querySelectorAll('[data-idx]').forEach(c => c.classList.toggle('disabled', disabled));
+}
+
+function applyDisabledStates() {
+  Object.entries(taskMeta).forEach(([idxStr, meta]) => {
+    const idx = parseInt(idxStr);
+    const el = document.querySelector(`[data-idx="${idx}"]`);
+    if (!el || !el.classList.contains('ck')) return;
+    if (meta.parentIdx === null || meta.parentIdx === undefined) return;
+    const parentMeta = taskMeta[meta.parentIdx];
+    if (!parentMeta || (!parentMeta.anyOne && !parentMeta.mutex)) return;
+    meta.siblingIdxs.forEach(sibIdx => disableBranch(sibIdx, true));
+  });
+}
+
+function updateAllCounts() {
+  document.querySelectorAll('[id^="tcnt-"]').forEach(cnt => {
+    const parentIdx = parseInt(cnt.id.replace('tcnt-', ''));
+    const parentEl = document.querySelector(`[data-idx="${parentIdx}"]`);
+    if (!parentEl) return;
+    const subsEl = document.getElementById(`subsof-${parentIdx}`);
+    if (!subsEl) return;
+    const meta = taskMeta[parentIdx];
+    // 只取直接子節點（有 data-idx 的直接子元素）
+    const directChildren = Array.from(subsEl.children).filter(c => c.dataset && c.dataset.idx);
+
+    if (meta && (meta.anyOne || meta.mutex)) {
+      const anyDone = directChildren.some(c => c.classList.contains('ck'));
+      const doneCount = directChildren.filter(c => c.classList.contains('ck')).length;
+      cnt.textContent = anyDone ? '✓' : `0/${directChildren.length}`;
+      parentEl.classList.toggle('ck', anyDone);
+    } else {
+      const done = directChildren.filter(c => c.classList.contains('ck')).length;
+      cnt.textContent = `${done}/${directChildren.length}`;
+      parentEl.classList.toggle('ck', done === directChildren.length && directChildren.length > 0);
+    }
+  });
+}
+
+function closeModal() { document.getElementById('overlay').classList.remove('open'); }
+function maybeClose(e) { if(e.target===document.getElementById('overlay')) closeModal(); }
+
+async function saveExh() {
+  if (isSaving) return;
+  isSaving = true;
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.textContent = '儲存中…';
+  const tasks = Array(TASK_COUNT).fill(0);
+  document.querySelectorAll('#taskList input[type=checkbox]').forEach(cb=>{
+    const idx = parseInt(cb.dataset.idx);
+    if (!isNaN(idx)) tasks[idx] = cb.checked?1:0;
+  });
+  // 同步父節點勾選狀態到 tasks
+  document.querySelectorAll('#taskList .task-parent,.task-sub,.task-sub2').forEach(el=>{
+    const idx = parseInt(el.dataset.idx);
+    if (!isNaN(idx)) tasks[idx] = el.classList.contains('ck')?1:0;
+  });
+  const data = {
+    id:editingId,
+    name:document.getElementById('fName').value||'未命名展覽',
+    artist:document.getElementById('fArtist').value,
+    curator:document.getElementById('fCurator').value,
+    type:document.getElementById('fType').value,
+    start:document.getElementById('fStart').value,
+    end:document.getElementById('fEnd').value,
+    status:document.getElementById('fStatus').value,
+    room:document.getElementById('fRoom').value,
+    tasks
+  };
+  try {
+    const action = editingId?'update':'create';
+    const res = await apiFetch('POST', {action, data, id:editingId});
+    if (res && res.success) { closeModal(); await loadExhibitions(); }
+    else alert('儲存失敗：'+(res&&res.error||'未知錯誤'));
+  } catch(e) { alert('網路錯誤，請稍後再試'); }
+  isSaving=false; btn.disabled=false; btn.textContent='儲存';
+}
+
+async function deleteExh() {
+  if (!editingId||!confirm('確定要刪除此展覽？')) return;
+  try {
+    const res = await apiFetch('POST',{action:'delete',id:editingId});
+    if (res && res.success) { closeModal(); await loadExhibitions(); }
+    else alert('刪除失敗');
+  } catch(e) { alert('網路錯誤'); }
+}
+
+function changeYear(d) { currentYear+=d; loadExhibitions(); }
+</script>
+</body>
+</html>
