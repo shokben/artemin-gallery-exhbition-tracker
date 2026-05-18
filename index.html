@@ -335,9 +335,13 @@
       <input type="radio" name="expFmt" value="client_csv">
       <div class="opt-info"><strong>客戶清單 CSV</strong><span>隱藏委賣人資料與賣方實拿，僅顯示藝廊售價</span></div>
     </label>
-    <label class="export-opt featured">
+    <label class="export-opt">
       <input type="radio" name="expFmt" value="collector_html">
-      <div class="opt-info"><strong>⭐ 藏家展示網頁</strong><span>精美 HTML，含作品圖片、資料與藝廊售價，可傳給藏家或列印為 PDF</span></div>
+      <div class="opt-info"><strong>藏家展示網頁（HTML）</strong><span>獨立 HTML 檔，含作品圖片、資料與藝廊售價，可傳給藏家瀏覽</span></div>
+    </label>
+    <label class="export-opt featured">
+      <input type="radio" name="expFmt" value="collector_pdf">
+      <div class="opt-info"><strong>⭐ 藏家清單 PDF</strong><span>直接下載 PDF，每頁兩件作品，含圖片、資料與藝廊售價，適合傳送或列印</span></div>
     </label>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="document.getElementById('exportOverlay').classList.remove('open')">取消</button>
