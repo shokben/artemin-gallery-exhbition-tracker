@@ -495,6 +495,10 @@ function doExport() {
     dlBlob(makeCSV([h,...r]),'artwork_list_client.csv');
   } else if (fmt === 'collector_html') {
     dlBlob(new Blob([buildCollectorHTML(list)],{type:'text/html;charset=utf-8'}),'artwork_collection.html');
+  } else if (fmt === 'collector_pdf') {
+    document.getElementById('exportOverlay').classList.remove('open');
+    exportCollectorPDF(list);
+    return;
   }
   document.getElementById('exportOverlay').classList.remove('open');
 }
@@ -513,6 +517,98 @@ function dlBlob(blob,name) {
   document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(a.href),3000);
 }
+
+
+// ── PDF 匯出 ──────────────────────────────────────────
+
+async function exportCollectorPDF(list) {
+  // 建立隱藏的預覽容器
+  const overlay = document.createElement('div');
+  overlay.id = 'pdf-preview-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+  overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:32px 40px;text-align:center;font-family:system-ui,sans-serif"><div style="font-size:32px;margin-bottom:12px">📄</div><div style="font-size:15px;font-weight:500;color:#1a1814;margin-bottom:6px">正在產生 PDF…</div><div style="font-size:13px;color:#8a8480">處理圖片中，請稍候</div></div>';
+  document.body.appendChild(overlay);
+
+  try {
+    // 動態載入 jsPDF
+    if (!window.jspdf) {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    }
+    const { jsPDF } = window.jspdf;
+
+    // 建立 HTML 預覽頁面（在隱藏 iframe 中渲染）
+    const html = buildCollectorHTML(list);
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:1100px;height:100vh;border:none;';
+    document.body.appendChild(iframe);
+
+    await new Promise(resolve => {
+      iframe.onload = resolve;
+      iframe.srcdoc = html;
+    });
+
+    // 等圖片載入
+    await new Promise(r => setTimeout(r, 2000));
+
+    // 載入 html2canvas
+    if (!window.html2canvas) {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    }
+
+    const iframeDoc  = iframe.contentDocument;
+    const iframeBody = iframeDoc.body;
+
+    // A4 比例：寬 794px = 210mm
+    const scale     = 2; // 高解析度
+    const pageW_px  = 794;
+    const pageH_px  = 1123; // A4 高度 297mm
+
+    // 分頁截圖
+    const totalH    = iframeBody.scrollHeight;
+    const pageCount = Math.ceil(totalH / pageH_px);
+    const doc       = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4', compress:true });
+
+    for (let p = 0; p < pageCount; p++) {
+      if (p > 0) doc.addPage();
+      const canvas = await html2canvas(iframeBody, {
+        scale,
+        useCORS:        true,
+        allowTaint:     true,
+        x:              0,
+        y:              p * pageH_px,
+        width:          pageW_px,
+        height:         Math.min(pageH_px, totalH - p * pageH_px),
+        windowWidth:    pageW_px,
+        scrollY:        -p * pageH_px,
+        backgroundColor:'#faf8f4'
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const imgH_mm = (canvas.height / canvas.width) * 210;
+      doc.addImage(imgData, 'JPEG', 0, 0, 210, imgH_mm, undefined, 'FAST');
+    }
+
+    doc.save('artwork_collection.pdf');
+    document.body.removeChild(iframe);
+
+  } catch(e) {
+    alert('PDF 產生失敗：' + e.message);
+    console.error(e);
+  } finally {
+    document.body.removeChild(overlay);
+  }
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload  = resolve;
+    s.onerror = () => reject(new Error('載入失敗：' + src));
+    document.head.appendChild(s);
+  });
+}
+
 
 function buildCollectorHTML(list) {
   const date = new Date().toLocaleDateString('zh-TW',{year:'numeric',month:'long',day:'numeric'});
