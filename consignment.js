@@ -62,14 +62,26 @@ function showArtError(msg) {
   document.getElementById('artTbody').innerHTML = '';
 }
 
-// ── 圖片上傳（到 Drive）──────────────────────────────
+// ── 圖片上傳（到 Drive，用 fetch POST 避免 URL 長度限制）──
 
 async function uploadSingleImage(base64, filename, mimeType) {
+  // 圖片 base64 很大，不能用 JSONP（URL 會超長），改用 fetch POST
   const payload = { action:'uploadImage', email:currentUser.email, base64, filename, mimeType };
-  const url = `${ART_API_URL}?payload=${encodeURIComponent(JSON.stringify(payload))}`;
-  const res = await fetchWithRetry(url, true);
+  const res = await fetchPost(payload);
   if (res && res.success) return res.url;
   throw new Error(res && res.error || '上傳失敗');
+}
+
+async function fetchPost(payload) {
+  const response = await fetch(ART_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload),
+    redirect: 'follow'
+  });
+  const text = await response.text();
+  try { return JSON.parse(text); }
+  catch(e) { throw new Error('伺服器回應格式錯誤'); }
 }
 
 async function uploadPendingImages() {
