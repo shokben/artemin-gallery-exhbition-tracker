@@ -4,6 +4,7 @@
 //  圖片儲存：Google Drive（透過 Apps Script uploadImage）
 // ═══════════════════════════════════════════════════════
 
+const ART_API_URL = 'https://script.google.com/macros/s/AKfycbylEP9IarMqUT9LcXONuAb8hMafek08mGmcKTssRR7bsBFYS4ouEv7zuRZn8j1s3GJf/exec';
 const MEDIA_LABEL = {
   oil:'油彩', acrylic:'壓克力', watercolor:'水彩', ink:'水墨',
   print:'版畫', sculpture:'雕塑', photo:'攝影', mixed:'複合媒材', other:'其他'
@@ -26,7 +27,7 @@ let tmpImgs = { hq: [], cond: [] };
 async function loadArtworks() {
   setArtSyncState('syncing');
   try {
-    const url = `${API_URL}?action=listArtworks&email=${encodeURIComponent(currentUser.email)}`;
+    const url = `${ART_API_URL}?action=listArtworks&email=${encodeURIComponent(currentUser.email)}`;
     const res = await fetchWithRetry(url, false);
     if (res && res.success) {
       artworks = res.data;
@@ -65,7 +66,7 @@ function showArtError(msg) {
 
 async function uploadSingleImage(base64, filename, mimeType) {
   const payload = { action:'uploadImage', email:currentUser.email, base64, filename, mimeType };
-  const url = `${API_URL}?payload=${encodeURIComponent(JSON.stringify(payload))}`;
+  const url = `${ART_API_URL}?payload=${encodeURIComponent(JSON.stringify(payload))}`;
   const res = await fetchWithRetry(url, true);
   if (res && res.success) return res.url;
   throw new Error(res && res.error || '上傳失敗');
@@ -359,7 +360,7 @@ async function saveArtwork() {
     saveBtn.textContent = '儲存中…';
     const action  = editArtId ? 'updateArtwork' : 'createArtwork';
     const payload = { action, data, email: currentUser.email };
-    const url     = `${API_URL}?payload=${encodeURIComponent(JSON.stringify(payload))}`;
+    const url     = `${ART_API_URL}?payload=${encodeURIComponent(JSON.stringify(payload))}`;
     const res     = await fetchWithRetry(url, true);
 
     if (res && res.success) {
@@ -399,7 +400,7 @@ async function doDeleteArtwork(id) {
   setArtSyncState('syncing');
   try {
     const payload = { action:'deleteArtwork', id, email: currentUser.email };
-    const url     = `${API_URL}?payload=${encodeURIComponent(JSON.stringify(payload))}`;
+    const url     = `${ART_API_URL}?payload=${encodeURIComponent(JSON.stringify(payload))}`;
     const res     = await fetchWithRetry(url, true);
     if (res && res.success) {
       artSelected.delete(id);
