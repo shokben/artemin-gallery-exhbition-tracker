@@ -563,60 +563,134 @@ async function exportCollectorPDF(list) {
       }
     }
 
-    // 3. 載入 jsPDF + html2canvas
+    // 3. 載入 jsPDF
     setStatus('載入套件中…', '');
-    if (!window.jspdf)       await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-    if (!window.html2canvas) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    if (!window.jspdf) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
     const { jsPDF } = window.jspdf;
 
-    // 4. 把圖片 URL 替換成 base64，渲染到隱藏 iframe
-    setStatus('排版中…', '');
-    let html = buildCollectorHTML(list);
-    // 把所有 Drive URL 換成 base64
-    Object.entries(imgCache).forEach(([url, b64]) => {
-      html = html.split(url).join(b64);
-    });
-
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:1100px;height:10000px;border:none;visibility:hidden;';
-    document.body.appendChild(iframe);
-
-    await new Promise(resolve => {
-      iframe.onload = () => setTimeout(resolve, 800);
-      iframe.srcdoc = html;
-    });
-
-    // 5. html2canvas 截圖 → jsPDF
+    // 4. 用 jsPDF 直接繪製（圖片已是 base64，不需要 canvas）
     setStatus('產生 PDF…', '');
-    const iframeBody = iframe.contentDocument.body;
-    const pageW_px   = 1100;
-    const pageH_px   = Math.round(1100 * 297 / 210); // A4 比例
-    const totalH     = iframeBody.scrollHeight;
-    const pageCount  = Math.ceil(totalH / pageH_px);
-    const doc        = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4', compress:true });
 
-    for (let p = 0; p < pageCount; p++) {
-      if (p > 0) doc.addPage();
-      setStatus('產生 PDF…', `第 ${p+1} / ${pageCount} 頁`);
-      const canvas = await html2canvas(iframeBody, {
-        scale:           1.5,
-        useCORS:         false,
-        allowTaint:      true,
-        x:               0,
-        y:               p * pageH_px,
-        width:           pageW_px,
-        height:          Math.min(pageH_px, totalH - p * pageH_px),
-        windowWidth:     pageW_px,
-        scrollY:         -(p * pageH_px),
-        backgroundColor: '#faf8f4'
-      });
-      const imgData  = canvas.toDataURL('image/jpeg', 0.92);
-      const imgH_mm  = (canvas.height / canvas.width) * 210;
-      doc.addImage(imgData, 'JPEG', 0, 0, 210, imgH_mm, undefined, 'FAST');
+    const doc     = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4', compress:true });
+    const pageW   = 210, pageH = 297;
+    const margin  = 14, colGap = 6, cols = 2;
+    const cardW   = (pageW - margin*2 - colGap*(cols-1)) / cols;
+    const imgH    = cardW * 0.75;
+    const textH   = 44;
+    const cardH   = imgH + textH;
+    const rowGap  = 8;
+
+    // 頁首函式
+    function drawHeader(isFirst) {
+      if (!isFirst) return;
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(8);
+      doc.setTextColor(184,146,74);
+      doc.text('ARTEMIN GALLERY', pageW/2, 10, {align:'center'});
+      doc.setFontSize(14);
+      doc.setTextColor(26,24,20);
+      doc.text('Art Collection', pageW/2, 18, {align:'center'});
+      doc.setFontSize(8);
+      doc.setTextColor(138,132,128);
+      const d = new Date().toLocaleDateString('zh-TW',{year:'numeric',month:'long',day:'numeric'});
+      doc.text(d + '  ·  ' + list.length + ' works', pageW/2, 24, {align:'center'});
+    }
+
+    drawHeader(true);
+    let curY = 30, col = 0, isFirstPage = true;
+
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      setStatus('產生 PDF…', `${i+1} / ${list.length} 件`);
+
+      // 換頁
+      if (curY + cardH > pageH - margin) {
+        doc.addPage();
+        curY = margin;
+        col  = 0;
+        isFirstPage = false;
+      }
+
+      const x = margin + col * (cardW + colGap);
+      const hqUrls = Array.isArray(a.hqImgs) ? a.hqImgs : [];
+      const b64    = hqUrls[0] ? imgCache[hqUrls[0]] : null;
+
+      // 圖片區
+      if (b64) {
+        try {
+          // 偵測格式
+          const fmt = b64.includes('image/png') ? 'PNG' : 'JPEG';
+          doc.addImage(b64, fmt, x, curY, cardW, imgH, undefined, 'FAST');
+        } catch(e) {
+          doc.setFillColor(240,237,232);
+          doc.rect(x, curY, cardW, imgH, 'F');
+        }
+      } else {
+        doc.setFillColor(240,237,232);
+        doc.rect(x, curY, cardW, imgH, 'F');
+        doc.setFontSize(8);
+        doc.setTextColor(180,176,168);
+        doc.text('No Image', x + cardW/2, curY + imgH/2, {align:'center'});
+      }
+
+      // 文字區
+      let ty = curY + imgH + 4;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica','bold');
+      doc.setTextColor(26,24,20);
+      const titleStr = doc.splitTextToSize(a.title || '', cardW)[0];
+      doc.text(titleStr, x, ty);
+      ty += 5;
+
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica','normal');
+      doc.setTextColor(100,96,92);
+      const artist = [a.artist, a.year ? a.year+' yr' : ''].filter(Boolean).join(', ');
+      doc.text(artist, x, ty);
+      ty += 4;
+
+      const media = [MEDIA_LABEL[a.media], a.support].filter(Boolean).join(', ');
+      const size  = fmtSize(a.w, a.h, a.d);
+      if (media || size !== '—') {
+        doc.setFontSize(7);
+        doc.setTextColor(140,136,132);
+        doc.text([media, size !== '—' ? size+' cm' : ''].filter(Boolean).join('  '), x, ty);
+        ty += 3.5;
+      }
+
+      // 售價
+      doc.setDrawColor(210,206,200);
+      doc.line(x, ty, x+cardW, ty);
+      ty += 3.5;
+      doc.setFontSize(7);
+      doc.setTextColor(140,136,132);
+      doc.text('Gallery Price', x, ty);
+      const price = a.offerPrice ? 'NT$ '+Number(a.offerPrice).toLocaleString() : 'Please inquire';
+      doc.setFontSize(9);
+      doc.setFont('helvetica','bold');
+      doc.setTextColor(58,90,138);
+      doc.text(price, x+cardW, ty, {align:'right'});
+
+      col++;
+      if (col >= cols) {
+        col   = 0;
+        curY += cardH + rowGap;
+      }
+    }
+
+    // 頁尾頁碼
+    const pages = doc.getNumberOfPages();
+    for (let p = 1; p <= pages; p++) {
+      doc.setPage(p);
+      doc.setFontSize(7);
+      doc.setFont('helvetica','normal');
+      doc.setTextColor(180,176,168);
+      doc.text('For inquiries, please contact the gallery', pageW/2, pageH-5, {align:'center'});
+      doc.text(p+' / '+pages, pageW-margin, pageH-5, {align:'right'});
     }
 
     doc.save('artwork_collection.pdf');
-    document.body.removeChild(iframe);
 
   } catch(e) {
     alert('PDF 產生失敗：' + e.message);
