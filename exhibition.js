@@ -2,7 +2,7 @@
 //  展覽規劃模組  —  exhibition.js
 // ═══════════════════════════════════════════════════════
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbwHaxwSZztR-qbtse4qG09YENNe3fGYvIRvafHjVaxKLeFKIFaYJn6r4PDbKV10Rx05/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbylEP9IarMqUT9LcXONuAb8hMafek08mGmcKTssRR7bsBFYS4ouEv7zuRZn8j1s3GJf/exec';
 
 // 任務結構定義
 const TASKS = [
