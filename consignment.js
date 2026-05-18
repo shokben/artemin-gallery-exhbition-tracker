@@ -522,69 +522,96 @@ function dlBlob(blob,name) {
 // ── PDF 匯出 ──────────────────────────────────────────
 
 async function exportCollectorPDF(list) {
-  // 建立隱藏的預覽容器
+  // 顯示進度提示
   const overlay = document.createElement('div');
-  overlay.id = 'pdf-preview-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center';
-  overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:32px 40px;text-align:center;font-family:system-ui,sans-serif"><div style="font-size:32px;margin-bottom:12px">📄</div><div style="font-size:15px;font-weight:500;color:#1a1814;margin-bottom:6px">正在產生 PDF…</div><div style="font-size:13px;color:#8a8480">處理圖片中，請稍候</div></div>';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:12px;padding:32px 40px;text-align:center;font-family:system-ui,sans-serif;min-width:240px';
+  box.innerHTML = '<div style="font-size:32px;margin-bottom:12px">📄</div><div id="pdf-status" style="font-size:15px;font-weight:500;color:#1a1814;margin-bottom:6px">準備中…</div><div id="pdf-sub" style="font-size:13px;color:#8a8480">請稍候</div>';
+  overlay.appendChild(box);
   document.body.appendChild(overlay);
 
+  const setStatus = (msg, sub) => {
+    document.getElementById('pdf-status').textContent = msg;
+    if (sub) document.getElementById('pdf-sub').textContent = sub;
+  };
+
   try {
-    // 動態載入 jsPDF
-    if (!window.jspdf) {
-      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    // 1. 收集所有圖片 URL
+    const allUrls = [];
+    list.forEach(a => {
+      (Array.isArray(a.hqImgs) ? a.hqImgs : []).forEach(url => {
+        if (url && !allUrls.includes(url)) allUrls.push(url);
+      });
+    });
+
+    // 2. 從 Apps Script 取得每張圖片的 base64
+    const imgCache = {};
+    if (allUrls.length) {
+      setStatus('載入圖片中…', `共 ${allUrls.length} 張`);
+      for (let i = 0; i < allUrls.length; i++) {
+        const url = allUrls[i];
+        setStatus('載入圖片中…', `${i + 1} / ${allUrls.length}`);
+        try {
+          const payload = { action:'getImageBase64', email:currentUser.email, url };
+          const apiUrl  = `${ART_API_URL}?payload=${encodeURIComponent(JSON.stringify(payload))}`;
+          const res     = await fetchWithRetry(apiUrl, false);
+          if (res && res.success) imgCache[url] = res.base64;
+        } catch(e) {
+          console.warn('圖片載入失敗:', url, e);
+        }
+      }
     }
+
+    // 3. 載入 jsPDF + html2canvas
+    setStatus('載入套件中…', '');
+    if (!window.jspdf)       await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    if (!window.html2canvas) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
     const { jsPDF } = window.jspdf;
 
-    // 建立 HTML 預覽頁面（在隱藏 iframe 中渲染）
-    const html = buildCollectorHTML(list);
+    // 4. 把圖片 URL 替換成 base64，渲染到隱藏 iframe
+    setStatus('排版中…', '');
+    let html = buildCollectorHTML(list);
+    // 把所有 Drive URL 換成 base64
+    Object.entries(imgCache).forEach(([url, b64]) => {
+      html = html.split(url).join(b64);
+    });
+
     const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:1100px;height:100vh;border:none;';
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:1100px;height:10000px;border:none;visibility:hidden;';
     document.body.appendChild(iframe);
 
     await new Promise(resolve => {
-      iframe.onload = resolve;
+      iframe.onload = () => setTimeout(resolve, 800);
       iframe.srcdoc = html;
     });
 
-    // 等圖片載入
-    await new Promise(r => setTimeout(r, 2000));
-
-    // 載入 html2canvas
-    if (!window.html2canvas) {
-      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-    }
-
-    const iframeDoc  = iframe.contentDocument;
-    const iframeBody = iframeDoc.body;
-
-    // A4 比例：寬 794px = 210mm
-    const scale     = 2; // 高解析度
-    const pageW_px  = 794;
-    const pageH_px  = 1123; // A4 高度 297mm
-
-    // 分頁截圖
-    const totalH    = iframeBody.scrollHeight;
-    const pageCount = Math.ceil(totalH / pageH_px);
-    const doc       = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4', compress:true });
+    // 5. html2canvas 截圖 → jsPDF
+    setStatus('產生 PDF…', '');
+    const iframeBody = iframe.contentDocument.body;
+    const pageW_px   = 1100;
+    const pageH_px   = Math.round(1100 * 297 / 210); // A4 比例
+    const totalH     = iframeBody.scrollHeight;
+    const pageCount  = Math.ceil(totalH / pageH_px);
+    const doc        = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4', compress:true });
 
     for (let p = 0; p < pageCount; p++) {
       if (p > 0) doc.addPage();
+      setStatus('產生 PDF…', `第 ${p+1} / ${pageCount} 頁`);
       const canvas = await html2canvas(iframeBody, {
-        scale,
-        useCORS:        true,
-        allowTaint:     true,
-        x:              0,
-        y:              p * pageH_px,
-        width:          pageW_px,
-        height:         Math.min(pageH_px, totalH - p * pageH_px),
-        windowWidth:    pageW_px,
-        scrollY:        -p * pageH_px,
-        backgroundColor:'#faf8f4'
+        scale:           1.5,
+        useCORS:         false,
+        allowTaint:      true,
+        x:               0,
+        y:               p * pageH_px,
+        width:           pageW_px,
+        height:          Math.min(pageH_px, totalH - p * pageH_px),
+        windowWidth:     pageW_px,
+        scrollY:         -(p * pageH_px),
+        backgroundColor: '#faf8f4'
       });
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.92);
-      const imgH_mm = (canvas.height / canvas.width) * 210;
+      const imgData  = canvas.toDataURL('image/jpeg', 0.92);
+      const imgH_mm  = (canvas.height / canvas.width) * 210;
       doc.addImage(imgData, 'JPEG', 0, 0, 210, imgH_mm, undefined, 'FAST');
     }
 
